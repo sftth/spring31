@@ -92,7 +92,6 @@ public class UserServiceTest {
 	public void upgradeAllOrNothing() throws Exception{
 		UserService testUserService = new TestUserService(users.get(3).getId());
 		testUserService.setUserDao(this.userDao);
-		testUserService.setDataSource(this.dataSource);
 		testUserService.setTransactionManager(transactionManager);
 		
 		userDao.deleteAll();

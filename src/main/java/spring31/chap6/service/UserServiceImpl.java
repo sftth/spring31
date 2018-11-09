@@ -1,26 +1,33 @@
-package spring31.chap5.sub511.service;
+package spring31.chap6.service;
 
 import java.util.List;
 import java.util.Properties;
 
-import javax.mail.Session;
-import javax.sql.DataSource;
+import javax.activation.*;
+import javax.mail.*;
+import javax.mail.internet.*;
 
+import org.apache.tomcat.util.buf.StringUtils;
+import org.hsqldb.lib.StringUtil;
+import org.springframework.mail.SimpleMailMessage;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 
-import spring31.chap5.sub511.dao.UserDao;
-import spring31.chap5.sub511.domain.Level;
-import spring31.chap5.sub511.domain.User;
+import spring31.chap6.dao.UserDao;
+import spring31.chap6.domain.Level;
+import spring31.chap6.domain.User;
+import spring31.chap6.mail.MailSender;
 
-public class UserService {
+public class UserServiceImpl implements UserService {
 	public static final int MIN_LOGCOUNT_FOR_SILVER = 50;
 	public static final int MIN_RECCOMEND_FOR_GOLD = 30;
 	
 	private UserDao userDao;
 	
 	private PlatformTransactionManager transactionManager;
+	
+	private MailSender mailSender;
 	
 	public void setUserDao(UserDao userDao) {
 		this.userDao = userDao;
@@ -30,20 +37,17 @@ public class UserService {
 		this.transactionManager = transactionManager;
 	}
 	
-	public void upgradeLevels() throws Exception{
-		TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
-		try {
-			List<User> users = userDao.getAll();
-			for(User user : users) {
-				if(canUpgradeLevel(user)) {
-					upgradeLevel(user);
-				}
+	public void setMailSender(MailSender mailSender) {
+		this.mailSender = mailSender;
+	}
+	
+	public void upgradeLevels(){
+		List<User> users = userDao.getAll();
+		for(User user : users) {
+			if(canUpgradeLevel(user)) {
+				upgradeLevel(user);
 			}
-			transactionManager.commit(status);
-		} catch (Exception e) {
-			transactionManager.rollback(status);
-			throw e;
-		} 		
+		}		
 	}
 	
 	private boolean canUpgradeLevel(User user) {
@@ -56,7 +60,7 @@ public class UserService {
 		}
 	}
 	
-	public void upgradeLevel(User user) throws Exception {
+	public void upgradeLevel(User user){
 		user.upgradeLevel();
 		userDao.update(user);
 		sendUpgradeEMail(user);
@@ -68,26 +72,12 @@ public class UserService {
 	}
 	
 	public void sendUpgradeEMail(User user) {
-		String host = "smtp.naver.com";
+		SimpleMailMessage mailMessage = new SimpleMailMessage();
+		mailMessage.setTo(user.getEmail());
+		mailMessage.setFrom("admin@me.com");
+		mailMessage.setSubject("Upgrade 안내");
+		mailMessage.setText(String.format("사용자의 등급이 %1s",user.getLevel().name()) );
 		
-		final String username = "sftth";
-		final String password = "gw170104@u";
-		int port = 465;
-		
-		//메일 내용
-		String recipient = "sftth@naver.com";
-		String subject ="메일테스트";
-		
-		Properties props = System.getProperties();
-		
-		Session session = null;
-		
-		if(session == null) {
-			props.put("mail.smtp.host", host);
-			props.put("mail.smtp.port", port);
-			props.put("mail.smtp.auth", "true");
-			props.put("mail.smtp.ssl.enable", "true");
-			props.put("mail.smpt.ssl.trust", host);
-		}
+		this.mailSender.send(mailMessage);
 	}
 }
